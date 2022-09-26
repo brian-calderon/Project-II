@@ -1,0 +1,131 @@
+---
+title: "Inline_Cpk"
+author: "Brian Calderon"
+date: "8/28/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(data.table)
+library(dplyr)
+# library(ROracle)
+library(ggplot2)
+library(lubridate)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r table}
+table = read.csv(file = "./Inline_Cpk/data/09-05-22_T6 Inline Data.csv")
+head(table)
+# View(table)
+```
+
+
+```{r}
+table = table %>%
+          # Select only relevant columns
+          select(c(1,3:5,10:12,19,20,23:24,26:29)) %>% 
+          # Renaming columns
+          rename("X" = "UCSFlashX", "Y" = "UCSFlashY","Date-Time" = "Timestamp_Proc", "Step" = "Level",
+                 "Meas_Tool" = "MTool") %>%
+          # Handling missing values in the parm data.
+          mutate( Value = replace(Value,is.na(Value),0)) %>%
+          # Converting Date-Time to a DateTime format
+          mutate(`Date-Time` = as.POSIXct(`Date-Time`,format="%m/%d/%Y %H:%M",tz=Sys.timezone()))
+head(table)
+```
+
+## Cpk Tables
+
+```{r}
+# Create table with cpk values per mfg step per month. 
+cpk_monthly = table %>%
+              # Extract month and year from Date-Time column
+              mutate(Month = strftime(`Date-Time`, format = "%b"), 
+                     Year = strftime(`Date-Time`, format = "%y"),
+                     Month_Year = strftime(`Date-Time`, format = "%b %y")) %>%
+              group_by(., Step, Parameter, Month, Year, Month_Year, USL, LSL) %>%
+              summarize(Count = n(), Std = sd(Value), Avg = mean(Value)) %>%
+              # Calculate CPK
+              mutate(CPU = (USL - Avg)/(3*Std),CPL = (Avg - LSL)/(3*Std), CPK = min(CPU,CPL))
+head(cpk_monthly)
+# n_distinct(cpk_monthly$Step)
+View(cpk_monthly)
+```
+
+
+
+```{r}
+# cpk_monthly %>%
+#   arrange(Month) %>%
+#   head(n_distinct(cpk_monthly$Month))
+
+
+# Calculates the avg cpk for all mfg steps within the time frame of data downloaded
+cpk_all = cpk_monthly %>%
+            group_by(Step) %>%
+            summarize(Avg_Cpk = mean(CPK)) %>%
+            right_join(cpk_monthly, by = "Step") %>%
+            distinct(Step, .keep_all = TRUE) %>%
+            select(Step, Avg_Cpk, Parameter, Year, USL, LSL)
+
+# %>%
+#             select(Step,Avg_Cpk,Parameter,Year,USL,LSL) %>%
+#             arrange(Step)
+head(cpk_all)
+View(cpk_all)
+```
+
+## Plots
+
+```{r}
+cpk_monthly%>%
+    ggplot(aes(Step, CPK, fill = Month_Year)) + 
+    geom_col(position = "dodge") +
+    geom_hline(yintercept=1.67, linetype="dashed", color = "red") + 
+    geom_hline(yintercept=1.0, linetype="dashed", color = "red") +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+cpk_all %>%
+    ggplot(aes(Step, Avg_Cpk, fill = Year)) + 
+    geom_col(position = "dodge") +
+    geom_hline(yintercept=1.67, linetype="dashed", color = "red") + 
+    geom_hline(yintercept=1.0, linetype="dashed", color = "red") + 
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+```
+
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```{r}
+table %>%
+              mutate(Month_Year = strftime(`Date-Time`, format = "%b %y")) %>%
+              group_by(Step, Month_Year) %>%
+              summarize(Count = n()) %>%
+              arrange(Month_Year) %>%
+              head(n_distinct(table$Step)) %>%
+              select(-3) %>%
+              right_join(cpk_table, by = "Step")
+              # inner_join(cpk_table, by = "Step")
+# n_distinct(table$Step)
+# semi_join(cpk_table, table, by = "Step")
+
+```
+
+```{r}
+choices = c("All",unique(table$Step))
+print(choices)
+```
+
+
+
+
+
