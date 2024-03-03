@@ -1,0 +1,13 @@
+name: GF_CPK_Tracker
+title: GF_CPK_Tracker
+username: brianrcalderon
+account: brianrcalderon
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 11385418
+bundleId: 8321095
+url: https://brianrcalderon.shinyapps.io/GF_CPK_Tracker/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: data/08-28-22_T6 Inline Data.csv|data/09-05-22_T6 Inline Data.csv|data/09-05-22_T6 Inline Data_Anonymization.xlsx
